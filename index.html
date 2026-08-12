@@ -1,4 +1,24 @@
 <!DOCTYPE html>
+<!--
+==========================================================================
+  AVIAC — INVOICE / PO GENERATOR              single file, no build step
+==========================================================================
+  QUICK EDIT MAP — search for these markers to jump to what you want:
+
+    [EDIT-COLORS]    the colour palette (dark UI + the spectral band)
+    [EDIT-DEFAULTS]  your company name, GSTIN, PAN, phone, email, bank
+    [EDIT-DOCTYPES]  wording for Invoice / Proforma / Quote / PO
+    [EDIT-CURRENCY]  currencies and how amount-in-words is spelled
+    [EDIT-PAPER]     the printed sheet's layout and typography
+    [EDIT-RENDER]    what actually gets drawn on the sheet
+    [EDIT-PDF]       PDF export settings
+
+  HOW IT WORKS: every field lives in the left panel. On any keystroke,
+  render() reads all fields straight from the DOM and rebuilds the sheet
+  HTML on the right. There is no framework and no saved state — reload
+  the page and you are back to the defaults below.
+==========================================================================
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -10,11 +30,21 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 :root{
+  /* [EDIT-COLORS] ------------------------------------------------------
+     shell*  = dark background of the editor panel
+     line    = borders inside the editor
+     steel   = dim label text in the editor
+     readout = the amber accent (buttons, focus rings)
+     ink/muted/rule/paper = colours of the PRINTED sheet only
+     b1..b8  = the 8-band spectral strip under the invoice header,
+               one colour per band of Aviac's camera. Change these to
+               re-brand the sheet, or delete the .band div in render(). */
   --shell:#0E141B; --shell-2:#151E27; --shell-3:#1D2833;
   --line:#26333F; --steel:#8FA3B4; --steel-dim:#61748470;
   --readout:#E8B23A; --ok:#3FB98C;
   --ink:#0F1720; --muted:#5D6D7C; --rule:#E3E8ED; --paper:#fff;
   --b1:#1E63D6; --b2:#12A67A; --b3:#C9C21F; --b4:#E0902F; --b5:#D6453C; --b6:#B0399B; --b7:#7A3FD1; --b8:#3A3A6E;
+  /* sheet size in CSS pixels at 96dpi — swapped by the Page size dropdown */
   --paper-w:794px; --paper-h:1123px;
   --sans:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
   --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
@@ -70,7 +100,9 @@ textarea{resize:vertical;min-height:62px;line-height:1.45}
 .btn.go:hover{background:#F2C25A;border-color:#F2C25A;color:#171208}
 .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 
-/* ---------- preview ---------- */
+/* ---------- preview + [EDIT-PAPER] the printed sheet -----------------
+   Everything under #paper is what lands in the PDF. Sizes are in CSS
+   pixels at 96dpi: A4 = 794 x 1123, US Letter = 816 x 1056.          */
 .stage{background:#080C11;padding:28px;overflow:auto;max-height:100vh;
   background-image:radial-gradient(circle at 1px 1px, #16202B 1px, transparent 0);background-size:22px 22px}
 .stagebar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
@@ -83,13 +115,18 @@ textarea{resize:vertical;min-height:62px;line-height:1.45}
 
 #paper{width:var(--paper-w);min-height:var(--paper-h);background:var(--paper);color:var(--ink);
   padding:52px 56px;box-shadow:0 24px 70px rgba(0,0,0,.55);position:relative;font-size:12.5px;line-height:1.55}
-#paper .hdr{display:flex;gap:24px;align-items:flex-start}
+/* Header = [logo] [company block] [INVOICE + numbers].
+   min-width:0 on the middle column is what stops long GSTIN/phone/email
+   strings from pushing the title off the page when a logo is added. */
+#paper .hdr{display:flex;gap:20px;align-items:flex-start}
 #paper .logo{flex:0 0 auto}
 #paper .logo img{display:block;object-fit:contain}
-#paper .co h3{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em}
-#paper .co .addr{margin-top:6px;color:var(--muted);font-size:11.5px;white-space:pre-line;line-height:1.5}
-#paper .co .meta{margin-top:6px;color:var(--muted);font-size:11px;font-family:var(--mono)}
-#paper .title{margin-left:auto;text-align:right}
+#paper .co{flex:1 1 auto;min-width:0}
+#paper .co h3{margin:0;font-size:19px;font-weight:700;letter-spacing:-.01em;overflow-wrap:anywhere}
+#paper .co .addr{margin-top:6px;color:var(--muted);font-size:11.5px;white-space:pre-line;line-height:1.5;overflow-wrap:anywhere}
+#paper .co .meta{margin-top:6px;color:var(--muted);font-size:10.5px;font-family:var(--mono);line-height:1.65;overflow-wrap:anywhere}
+#paper .co .meta div{max-width:100%}
+#paper .title{flex:0 0 auto;margin-left:auto;text-align:right;padding-left:10px}
 #paper .title .word{font-size:26px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;line-height:1}
 #paper .title .sub{margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7}
 #paper .title .sub b{color:var(--ink);font-weight:500}
@@ -158,6 +195,11 @@ table.li th:last-child,table.li td:last-child{padding-right:0}
     <p>Aviac Technologies · edits appear live on the sheet</p>
     <div class="spectrum"><i style="background:var(--b1)"></i><i style="background:var(--b2)"></i><i style="background:var(--b3)"></i><i style="background:var(--b4)"></i><i style="background:var(--b5)"></i><i style="background:var(--b6)"></i><i style="background:var(--b7)"></i><i style="background:var(--b8)"></i></div>
   </div>
+
+  <!-- [EDIT-DEFAULTS] Everything below is just a normal HTML form.
+       To change what a field starts with, edit its value="..." /
+       the text inside <textarea>. To add a NEW field: copy a block,
+       give the input a unique id, then print it inside render(). -->
 
   <section class="grp">
     <h2>Logo</h2>
@@ -301,7 +343,22 @@ Bank: ICICI Bank</textarea></div>
 
 <script>
 (function(){
-  var $=function(id){return document.getElementById(id)};
+  'use strict';
+  var $=function(id){return document.getElementById(id)};  // shorthand
+
+  /* =====================================================================
+     [EDIT-DOCTYPES] One entry per document type in the dropdown.
+       word    text printed big at the top right
+       head    heading of the party section in the editor
+       partyK  label above the client/vendor block on the sheet
+       amtK    label above the big total in the top-right block
+       prefix  auto number prefix (AVI-PO-2026-001 etc.)
+       terms   default notes text loaded when you pick this type
+     Add a type: copy a block, give it a key, then add a matching
+     <option value="yourkey"> to the docType <select> above.
+     Switching type only overwrites number/terms/signature if you have
+     NOT edited them yourself.
+     ================================================================== */
   var DOC={
     invoice:{word:'Invoice',head:'Bill to',nameL:'Client name',noL:'Invoice no.',dateL:'Invoice date',dueL:'Due date',
       partyK:'Billed to',posK:'Place of supply',amtK:'Amount due',shipK:'Ship to',dateK:'Date',dueK:'Due',refK:'Ref',
@@ -320,6 +377,8 @@ Bank: ICICI Bank</textarea></div>
       prefix:'AVI-PO-2026-',sign:'For Aviac Technologies Private Limited',
       terms:'Please confirm acceptance of this order in writing. Quote the PO number on all invoices, packing lists and correspondence. Goods remain subject to inspection on delivery; payment terms 30 days from receipt of a correct invoice.'}
   };
+  /* [EDIT-CURRENCY] system:'in' spells 12,34,567 as Lakh/Crore;
+     'intl' spells 1,234,567 as Million. loc = Intl number formatting. */
   var CUR={
     INR:{sym:'₹',code:'INR',major:'Rupees',minor:'Paise',system:'in',loc:'en-IN'},
     USD:{sym:'$',code:'USD',major:'Dollars',minor:'Cents',system:'intl',loc:'en-US'},
@@ -328,7 +387,10 @@ Bank: ICICI Bank</textarea></div>
   };
   var logoData='';
 
-  /* ---------- number to words ---------- */
+  /* ---------- number to words ------------------------------------
+     amountInWords() is what refreshes under the totals every time a
+     figure changes. It splits the amount into whole + 2 decimals and
+     spells each with the right system for the selected currency.    */
   var ONES=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
   var TENS=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
   function under100(n){ if(n<20) return ONES[n]; var t=TENS[Math.floor(n/10)], o=n%10; return o? t+'-'+ONES[o] : t; }
@@ -356,6 +418,8 @@ Bank: ICICI Bank</textarea></div>
     return s+' Only';
   }
   function fmt(n,c){ try{ return new Intl.NumberFormat(c.loc,{minimumFractionDigits:2,maximumFractionDigits:2}).format(n); }catch(e){ return n.toFixed(2); } }
+  // joins the non-empty bits of a header line with a dot separator
+  function line(parts){ var t=parts.filter(Boolean).join(' \u00b7 '); return t?'<div>'+t+'</div>':''; }
   function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m]}); }
   var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   function dmy(v){
@@ -366,7 +430,10 @@ Bank: ICICI Bank</textarea></div>
     return p[2]+'/'+p[1]+'/'+p[0];
   }
 
-  /* ---------- line items ---------- */
+  /* ---------- line items -------------------------------------------
+     Rows live in the DOM, not in a JS array. itemRow() builds a row;
+     readItems() reads them all back on every render. That is why
+     typing never steals focus — nothing re-creates the inputs.      */
   function itemRow(d){
     d=d||{desc:'',hsn:'',qty:1,rate:0};
     var el=document.createElement('div'); el.className='item';
@@ -393,17 +460,24 @@ Bank: ICICI Bank</textarea></div>
     });
   }
 
-  /* ---------- render ---------- */
+  /* ---------- render -------------------------------------------------
+     [EDIT-RENDER] The single function that draws the sheet.
+       1. read every field + all line items
+       2. do the maths (subtotal, discount, tax, shipping, round off)
+       3. rebuild #paper's HTML in one go
+     To change the printed layout, edit the template strings below.
+     To change the maths, edit the block right under this comment.   */
   function render(){
     var c=CUR[$('cur').value], items=readItems(), bw=$('inkMode').value==='bw', D=DOC[$('docType').value];
-    var sub=items.reduce(function(a,i){return a+i.amt},0);
+    // ---- the maths, in the order a GST invoice expects it ----
+    var sub=items.reduce(function(a,i){return a+i.amt},0);          // sum of lines
     var disc=$('discType').value==='pct' ? sub*(parseFloat($('discVal').value)||0)/100 : (parseFloat($('discVal').value)||0);
     if(disc>sub) disc=sub;
-    var taxable=sub-disc;
+    var taxable=sub-disc;                                            // tax applies AFTER discount
     var type=$('taxType').value, rate=type==='none'?0:(parseFloat($('taxRate').value)||0);
-    var tax=taxable*rate/100, ship=parseFloat($('shipVal').value)||0;
+    var tax=taxable*rate/100, ship=parseFloat($('shipVal').value)||0; // shipping is not taxed here
     var total=taxable+tax+ship, roundAdj=0;
-    if($('roundOff').checked){ var r=Math.round(total); roundAdj=r-total; total=r; }
+    if($('roundOff').checked){ var r=Math.round(total); roundAdj=r-total; total=r; } // whole rupees
 
     // line amounts in editor
     [].forEach.call($('items').children,function(el,i){
@@ -438,11 +512,13 @@ Bank: ICICI Bank</textarea></div>
         '<div class="co">'+
           '<h3>'+(esc($('fromName').value)||'Your business')+'</h3>'+
           '<div class="addr">'+esc($('fromAddr').value)+'</div>'+
-          '<div class="meta">'+[
-            $('fromGst').value?'GSTIN '+esc($('fromGst').value):'',
-            $('fromPan').value?'PAN / IEC '+esc($('fromPan').value):'',
-            esc($('fromPhone').value),esc($('fromMail').value)
-          ].filter(Boolean).join(' · ')+'</div>'+
+          // tax IDs on one line, contact details on the next, so a logo
+          // squeezing this column never pushes text past the page edge
+          '<div class="meta">'+
+            line([$('fromGst').value?'GSTIN '+esc($('fromGst').value):'',
+                  $('fromPan').value?'PAN / IEC '+esc($('fromPan').value):''])+
+            line([esc($('fromPhone').value),esc($('fromMail').value)])+
+          '</div>'+
         '</div>'+
         '<div class="title"><div class="word">'+D.word+'</div><div class="sub">'+
           'No. <b>'+(esc($('invNo').value)||'—')+'</b><br>'+
@@ -482,7 +558,9 @@ Bank: ICICI Bank</textarea></div>
       '<div class="stamp"><span>'+(esc($('fromName').value)||'')+'</span><span>'+D.word+' '+(esc($('invNo').value)||'')+'</span></div>';
   }
 
-  /* ---------- events ---------- */
+  /* ---------- events --------------------------------------------------
+     One delegated listener on the whole editor means any new field you
+     add is picked up automatically — no wiring needed.               */
   $('editor').addEventListener('input',render);
   $('editor').addEventListener('change',function(e){
     if(e.target.id==='pageSize'){
@@ -529,6 +607,10 @@ Bank: ICICI Bank</textarea></div>
   $('zOut').addEventListener('click',function(){ zoom=Math.max(0.4,zoom-0.1); applyZoom(); });
 
   $('printBtn').addEventListener('click',function(){ window.print(); });
+  /* [EDIT-PDF] Download PDF clones the sheet at 100% zoom into an
+     off-screen box (so the on-screen zoom never affects output), hands
+     it to html2pdf, then removes the clone. If the CDN script is
+     blocked it falls back to the browser print dialog.              */
   $('dlPdf').addEventListener('click',function(){
     var name=($('fname').value||(DOC[$('docType').value].word.replace(/ /g,'-')+'-'+($('invNo').value||'draft'))).replace(/[^\w\-. ]/g,'')+'.pdf';
     if(typeof html2pdf==='undefined'){ $('status').textContent='PDF library unavailable — use Print / Save as PDF instead.'; window.print(); return; }
@@ -550,7 +632,9 @@ Bank: ICICI Bank</textarea></div>
     });
   });
 
-  /* ---------- init ---------- */
+  /* ---------- init ----------------------------------------------------
+     Runs once on load: today's date, due date +15 days, and two sample
+     line items. Delete the two lines below to start with an empty row. */
   var t=new Date(), d=new Date(t.getTime()+15*864e5);
   var iso=function(x){ return x.toISOString().slice(0,10); };
   $('invDate').value=iso(t); $('dueDate').value=iso(d);
