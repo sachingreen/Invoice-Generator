@@ -167,6 +167,7 @@ table.li th:last-child,table.li td:last-child{padding-right:0}
 .notes p{margin:0 0 14px;color:var(--muted);font-size:11.5px;white-space:pre-line;line-height:1.55}
 .sign{margin-top:44px;text-align:right}
 .sign .line{display:inline-block;width:190px;border-top:1px solid var(--ink);padding-top:6px;font-size:11px;color:var(--muted)}
+.notice{margin-top:18px;text-align:center;font-size:10px;color:var(--muted);white-space:pre-line;line-height:1.5}
 .stamp{position:absolute;left:56px;right:56px;bottom:34px;display:flex;justify-content:space-between;
   font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#9AA7B2;border-top:1px solid var(--rule);padding-top:10px}
 
@@ -305,7 +306,7 @@ IFSC: ICIC0005702
 Bank: ICICI Bank</textarea></div>
     <div class="f"><label>Notes / terms</label><textarea id="terms">Payment due within 15 days of invoice date. Late payments may attract interest at 1.5% per month.</textarea></div>
     <div class="f"><label>Signature label</label><input id="signLabel" value="For Aviac Technologies Private Limited"></div>
-     <div class="f"><label>Notice text</label><textarea id="sysText">This is a computer-generated document.</textarea></div>
+    <div class="f"><label>Notice text</label><textarea id="sysText">This is a computer-generated document.</textarea></div>
   </section>
 
   <section class="grp">
@@ -555,6 +556,7 @@ Bank: ICICI Bank</textarea></div>
       '</div>'+
       '<div class="words"><div class="k">Amount in words</div><b>'+amountInWords(total,c)+'</b></div>'+
       '<div class="sign"><div class="line">'+(esc($('signLabel').value)||'Authorised signatory')+'</div></div>'+
+      ($('sysText').value?'<div class="notice">'+esc($('sysText').value)+'</div>':'')+
       '<div class="stamp"><span>'+(esc($('fromName').value)||'')+'</span><span>'+D.word+' '+(esc($('invNo').value)||'')+'</span></div>';
   }
 
